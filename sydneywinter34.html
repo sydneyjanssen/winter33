@@ -10,6 +10,7 @@
     <script src="https://code.jquery.com/jquery-2.1.3.min.js"></script>
     <script src="//cdnjs.cloudflare.com/ajax/libs/socket.io/0.9.16/socket.io.min.js"></script>
     <script src="//cdnjs.cloudflare.com/ajax/libs/flot/0.8.2/jquery.flot.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/flot/0.8.3/jquery.flot.pie.js"></script>
     <script src="js/batterycapacity.js"></script>
     <script src="js/leftsignal.js"></script>
     <script src="js/front_leftsignal.js"></script>
@@ -22,7 +23,7 @@
     -->
     <style>
     body {
-        background-color:lightred;
+        background-color:white;
     }
     </style>
 
@@ -74,6 +75,40 @@
         [null, 50]
     ];
 
+    var tempo = 2000;
+    birthdaysong = [
+        [293.7, tempo * .1875],
+        [293.7, tempo * .0675],
+        [329.6, tempo * .25],
+        [293.7, tempo * .25],
+        [392, tempo * .25],
+        [370, tempo * .5],
+        [null, tempo * .25],
+        [293.7, tempo * .1875],
+        [293.7, tempo * .0675],
+        [329.6, tempo * .25],
+        [293.7, tempo * .25],
+        [440, tempo * .25],
+        [392, tempo * .5],
+        [null, tempo * .0625],
+        [null, tempo * .0625], //extra nulls so rests happen
+        [null, tempo * .0625], //at pauses (every 16 notes)
+        [293.7, tempo * .1875],
+        [293.7, tempo * .0675],
+        [587.3, tempo * .25],
+        [493.9, tempo * .25],
+        [392, tempo * .25],
+        [370, tempo * .25],
+        [329.6, tempo * .25],
+        [null, tempo * .5],
+        [523.3, tempo * .125],
+        [523.3, tempo * .125],
+        [493.9, tempo * .25],
+        [392, tempo * .25],
+        [440, tempo * .25],
+        [392, tempo * .5]
+    ];
+
     function sensop(mag) {
         //newmag = 2 * ((1 - mag) - .5);
         newmag = mag
@@ -95,14 +130,25 @@
         leftsignal(socket);
         front_leftsignal(socket);
         socket.on('sensordata', function(data) {
+            var cap=data.battery.capacity.percent;
+            cap=cap*100
+            //console.log(cap);
+            dataSet[0].data = cap;
+            dataSet[1].data = 100-cap;
+            //console.log(dataSet);
+            $.plot($("#flot-placeholder"), dataSet, chargeOptions);
+
 
             //console.log(data);
-            $("#current").text(data.battery.current.amps);
             $("#voltage").text(data.battery.voltage.volts.toFixed(2));
-            $("#left").text(data.cliff_sensors.left.signal.raw);
-            $("#front_left").text(data.cliff_sensors.front_left.signal.raw);
-            $("#front_right").text(data.cliff_sensors.front_right.signal.raw);
-            $("#right").text(data.cliff_sensors.right.signal.raw);
+            $("#current").text(data.battery.current.amps.toFixed(2));
+            var power = data.battery.voltage.volts * data.battery.current.amps;
+            $("#power").text(power.toFixed(2));
+            var batCapPer = data.battery.capacity.percent;
+            $("#batCapPer").text((batCapPer * 100).toFixed(2));
+            $("#tempF").text(data.battery.temperature.fahrenheit.toFixed(2));
+            $("#charging").text(power > 0);
+            $("#allsensors").text(JSON.stringify(data));
 
             $(".left_signal").css("opacity", sensop(data.cliff_sensors.left.signal.magnitude));
             $(".left_signal").text(sensop(data.cliff_sensors.left.signal.magnitude));
@@ -308,9 +354,69 @@
     });
     </script>
 
+<script>
+    var dataSet = [
+        
+     {
+        label: "percent charged",
+        data: 100,
+        color: "#00ff00"
+    }, {
+        label: "percent discharged",
+        data: 0,
+        color: "#ff0000"
+   
+    }];
+
+    
+        var chargeOptions = {
+        legend: {
+            show: false
+        },
+        series: {
+            pie: {
+                show: true,
+                innerRadius: 0.3,
+                label: {
+                    show: true,
+                    radius: .5,
+                    background: {
+                        opacity: 0.5,
+                        color: '#000'
+                    }
+
+                }
+            }
+        }
+    };
+
+    $(document).ready(function() {
+        $.plot($("#flot-placeholder"), dataSet, options);
+
+        $("#flot-placeholder").click(function() {
+            dataSet[0].data = Number(dataSet[0].data) + 1; 
+            console.log(dataSet);
+
+            $.plot($("#flot-placeholder"), dataSet, options);
+        });
+    });
+    </script>
+<style>
+.battery {float: center};
+
+.robotcontrol {
+  background-color: rgb(222, 222, 222);
+  color: rgb(52, 53, 56);
+}
+
+
+</style>
+
+
 </head>
 
 <body>
+
     <div class="container">
         <div class="row">
             <div class="col-xs-3 left_signal darkness">
@@ -327,21 +433,34 @@
             </div>
 
 
-        </div>
+    <div>
         <div class="row">
-            <div class="col-xs-3 sensor-block col-xs-offset-1">
+            <div class="col-xs-2 sensor-block">
+                <div class="sensor-title">Charging</div>
+                <div class="sensor-value" id="charging">...</div>
+            </div>
+            <div class="col-xs-2 sensor-block">
                 <div class="sensor-title">Voltage</div>
                 <div class="sensor-value" id="voltage">...</div>
             </div>
-            <div class="col-xs-3 col-xs-offset-1 sensor-block">
-                <div class="sensor-title">Speed</div>
-                <div class="sensor-value" id="speed">0</div>
+            <div class="col-xs-2 sensor-block">
+                <div class="sensor-title">Current</div>
+                <div class="sensor-value" id="current">...</div>
             </div>
-            <div class="col-xs-3 col-xs-offset-1 sensor-block" id="darkness">
-                <div class="sensor-title">Countup</div>
-                <div id="countup" class="sensor-value">0</div>
+            <div class="col-xs-2 sensor-block">
+                <div class="sensor-title">Power</div>
+                <div class="sensor-value" id="power">...</div>
+            </div>
+            <div class="col-xs-2 sensor-block">
+                <div class="sensor-title">Capacity %</div>
+                <div class="sensor-value" id="batCapPer">...</div>
+            </div>
+            <div class="col-xs-2 sensor-block">
+                <div class="sensor-title">Temp F</div>
+                <div class="sensor-value" id="tempF">...</div>
             </div>
         </div>
+
 
 
         <h3>Robot Control</h3>
@@ -355,6 +474,14 @@
 
 
                 <button id="playsong" class="btn-success btn-lg btn-block">Play Twinkle Twinkle Little Star
+                    <span class="glyphicon glyphicon-music"></span>
+                </button>
+            </div>
+            <div class="row">
+            <div class="col-xs-3">
+
+
+                <button id="playbirthdaysong" class="btn-success btn-lg btn-block">Play Happy Birthday
                     <span class="glyphicon glyphicon-music"></span>
                 </button>
             </div>
@@ -412,7 +539,9 @@
             <div class="col-md-3" id="frontrightdata" style="height:300px">.....</div>
             <div class="col-md-3" id="rightdata" style="height:300px">.....</div>
         </div>
-        <div class="col-md-3" id="batterycapacity" style="height:300px">bat</div>
+                <div class="col-md-3 battery" id="batterycapacity" style="height:300px">bat</div>
+                        <div id="flot-placeholder" style="width:400px;height:300px"></div>
+
 
         <div class="row">
             <div class="col-xs-6">
